@@ -35,6 +35,7 @@ module TcHsType (
 
         -- Kind-checking types
         -- No kind generalisation, no checkValidType
+        kcTLKS,
         kcLHsQTyVars,
         tcWildCardBinders,
         tcHsLiftedType,   tcHsOpenType,
@@ -111,6 +112,7 @@ import qualified GHC.LanguageExtensions as LangExt
 import Maybes
 import Data.List ( find )
 import Control.Monad
+import Data.Void
 
 {-
         ----------------------------
@@ -1750,6 +1752,14 @@ It has two cases:
    partial type signature), so we infer the type and generalise.
 -}
 
+kcTLKS :: LTopKindSig GhcRn -> TcM TcTyCon
+kcTLKS (L _ tlks) = case tlks of
+  TopKindSig _ (L _ name) ksig ->
+    -- TODO (int-index): actual ty con flavour
+    kcLHsQTyVars_Cusk name DataTypeFlavour emptyLHsQTvs $
+    -- TODO (int-index): handle the wildcards
+    tcHsSigWcType (TopKindSigCtxt name) ksig
+  XTopKindSig x -> absurd x
 
 ------------------------------
 -- | Kind-check a 'LHsQTyVars'. If the decl under consideration has a complete,

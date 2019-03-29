@@ -150,8 +150,11 @@ tcTyClGroup :: TyClGroup GhcRn
 -- See Note [TyClGroups and dependency analysis] in HsDecls
 tcTyClGroup (TyClGroup { group_tyclds = tyclds
                        , group_roles  = roles
+                       , group_tlkss  = tlkss
                        , group_instds = instds })
   = do { let role_annots = mkRoleAnnotEnv roles
+
+       ; _tlksTcTyCons <- traverse kcTLKS tlkss
 
            -- Step 1: Typecheck the type/class declarations
        ; traceTc "---- tcTyClGroup ---- {" empty
@@ -405,7 +408,7 @@ We do the following steps:
             B   :-> TyConPE
             MkB :-> DataConPE
 
-  2. kcTyCLGruup
+  2. kcTyCLGroup
       - Do getInitialKinds, which will signal a promotion
         error if B is used in any of the kinds needed to initialse
         B's kind (e.g. (a :: Type)) here
