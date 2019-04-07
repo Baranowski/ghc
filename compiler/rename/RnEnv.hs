@@ -79,7 +79,7 @@ import RnUnbound
 import RnUtils
 import qualified Data.Semigroup as Semi
 import Data.Either      ( partitionEithers )
-import Data.List        (find)
+import Data.List        ( find, intercalate )
 
 {-
 *********************************************************
@@ -1470,14 +1470,20 @@ lookupBindGroupOcc ctxt what rdr_name
         doc = text "method of class" <+> quotes (ppr cls)
 
     lookup_top keep_me
+-- Note to self: See GlobalRdrEnv in RdrName.hs
       = do { env <- getGlobalRdrEnv
            ; let all_gres = lookupGlobalRdrEnv env (rdrNameOcc rdr_name)
+           ; let all_names = map (unpackFS . occNameFS . nameOccName . gre_name) (globalRdrEnvElts env)
+           ; let similar_names = fuzzyMatch (unpackFS $ occNameFS $ rdrNameOcc rdr_name) all_names
+           ; let candidates_msg = parens $ text $ "Possible candidates: " ++ (", " `intercalate` similar_names)
            ; case filter (keep_me . gre_name) all_gres of
-               [] | null all_gres -> bale_out_with Outputable.empty
+               [] | null all_gres -> bale_out_with candidates_msg
                   | otherwise     -> bale_out_with local_msg
                (gre:_)            -> return (Right (gre_name gre)) }
 
     lookup_group bound_names  -- Look in the local envt (not top level)
+-- Note to self: See LocalRdrEnv in RdrName.hs
+-- Note to self: use fuzzyMatch from Util.hs
       = do { mname <- lookupLocalOccRn_maybe rdr_name
            ; case mname of
                Just n
