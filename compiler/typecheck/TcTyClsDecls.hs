@@ -154,12 +154,14 @@ tcTyClGroup (TyClGroup { group_tyclds = tyclds
                        , group_instds = instds })
   = do { let role_annots = mkRoleAnnotEnv roles
 
-       ; _tlksTcTyCons <- traverse kcTLKS tlkss
+       ; tlks_env <-
+           mkNameEnv . map (\tcTyCon -> (tyConName tcTyCon, tcTyCon)) <$>
+           traverse kcTLKS tlkss
 
            -- Step 1: Typecheck the type/class declarations
        ; traceTc "---- tcTyClGroup ---- {" empty
        ; traceTc "Decls for" (ppr (map (tcdName . unLoc) tyclds))
-       ; tyclss <- tcTyClDecls tyclds role_annots
+       ; tyclss <- tcTyClDecls tyclds tlks_env role_annots
 
            -- Step 1.5: Make sure we don't have any type synonym cycles
        ; traceTc "Starting synonym cycle check" (ppr tyclss)
@@ -190,13 +192,13 @@ tcTyClGroup (TyClGroup { group_tyclds = tyclds
 
 tcTyClGroup (XTyClGroup _) = panic "tcTyClGroup"
 
-tcTyClDecls :: [LTyClDecl GhcRn] -> RoleAnnotEnv -> TcM [TyCon]
-tcTyClDecls tyclds role_annots
+tcTyClDecls :: [LTyClDecl GhcRn] -> NameEnv TcTyCon -> RoleAnnotEnv -> TcM [TyCon]
+tcTyClDecls tyclds tlks_env role_annots
   = tcExtendKindEnv promotion_err_env $   --- See Note [Type environment evolution]
     do {    -- Step 1: kind-check this group and returns the final
             -- (possibly-polymorphic) kind of each TyCon and Class
             -- See Note [Kind checking for type and class decls]
-         tc_tycons <- kcTyClGroup tyclds
+         tc_tycons <- kcTyClGroup tlks_env tyclds
        ; traceTc "tcTyAndCl generalized kinds" (vcat (map ppr_tc_tycon tc_tycons))
 
             -- Step 2: type-check all groups together, returning
@@ -477,13 +479,13 @@ been generalized.
 
 -}
 
-kcTyClGroup :: [LTyClDecl GhcRn] -> TcM [TcTyCon]
+kcTyClGroup :: NameEnv TcTyCon -> [LTyClDecl GhcRn] -> TcM [TcTyCon]
 
 -- Kind check this group, kind generalize, and return the resulting local env
 -- This binds the TyCons and Classes of the group, but not the DataCons
 -- See Note [Kind checking for type and class decls]
 -- and Note [Inferring kinds for type declarations]
-kcTyClGroup decls
+kcTyClGroup tlks_env decls
   = do  { mod <- getModule
         ; traceTc "---- kcTyClGroup ---- {"
                   (text "module" <+> ppr mod $$ vcat (map ppr decls))
@@ -494,13 +496,19 @@ kcTyClGroup decls
           --    3. Generalise the inferred kinds
           -- See Note [Kind checking for type and class decls]
 
+        ; let (kindless_decls, kinded_tcs)
+                 = partitionWith getTLKS decls
+              getTLKS d | Just tc <- lookupNameEnv tlks_env (tcdName (unLoc d))
+                        = Right tc
+                        | otherwise = Left d
         ; let (cusk_decls, no_cusk_decls)
-                 = partition (hsDeclHasCusk . unLoc) decls
+                 = partition (hsDeclHasCusk . unLoc) kindless_decls
 
         ; poly_cusk_tcs <- getInitialKinds True cusk_decls
+        ; let poly_sig_cusk_tcs = kinded_tcs ++ poly_cusk_tcs
 
         ; mono_tcs
-            <- tcExtendKindEnvWithTyCons poly_cusk_tcs $
+            <- tcExtendKindEnvWithTyCons poly_sig_cusk_tcs $
                pushTcLevelM_   $  -- We are going to kind-generalise, so
                                   -- unification variables in here must
                                   -- be one level in
@@ -526,7 +534,7 @@ kcTyClGroup decls
         -- in order.
         ; poly_no_cusk_tcs <- mapAndReportM generaliseTcTyCon mono_tcs
 
-        ; let poly_tcs = poly_cusk_tcs ++ poly_no_cusk_tcs
+        ; let poly_tcs = poly_sig_cusk_tcs ++ poly_no_cusk_tcs
         ; traceTc "---- kcTyClGroup end ---- }" (ppr_tc_kinds poly_tcs)
         ; return poly_tcs }
 
