@@ -1470,24 +1470,23 @@ lookupBindGroupOcc ctxt what rdr_name
         doc = text "method of class" <+> quotes (ppr cls)
 
     lookup_top keep_me
--- Note to self: See GlobalRdrEnv in RdrName.hs
       = do { env <- getGlobalRdrEnv
            ; let all_gres = lookupGlobalRdrEnv env (rdrNameOcc rdr_name)
+           ; let candidates_msg = candidates $ map gre_name $ globalRdrEnvElts env
            ; case filter (keep_me . gre_name) all_gres of
-               [] | null all_gres -> bale_out_with (candidates_msg $ map gre_name $ globalRdrEnvElts env)
+               [] | null all_gres -> bale_out_with candidates_msg
                   | otherwise     -> bale_out_with local_msg
                (gre:_)            -> return (Right (gre_name gre)) }
 
     lookup_group bound_names  -- Look in the local envt (not top level)
--- Note to self: See LocalRdrEnv in RdrName.hs
--- Note to self: use fuzzyMatch from Util.hs
       = do { env <- getLocalRdrEnv
            ; mname <- lookupLocalOccRn_maybe rdr_name
+           ; let candidates_msg = candidates $ localRdrEnvElts env
            ; case mname of
                Just n
                  | n `elemNameSet` bound_names -> return (Right n)
                  | otherwise                   -> bale_out_with local_msg
-               Nothing                         -> bale_out_with (candidates_msg $ localRdrEnvElts env) }
+               Nothing                         -> bale_out_with candidates_msg }
 
     bale_out_with msg
         = return (Left (sep [ text "The" <+> what
@@ -1497,12 +1496,15 @@ lookupBindGroupOcc ctxt what rdr_name
 
     local_msg = parens $ text "The"  <+> what <+> ptext (sLit "must be given where")
                            <+> quotes (ppr rdr_name) <+> text "is declared"
-    candidates_msg names_in_scope
+    candidates names_in_scope
         =  case similar_strings of
              [] -> Outputable.empty
-             _  -> parens $ text $ "Possible candidates: " ++ (", " `intercalate` similar_strings)
+             _  -> parens $ text $ "Possible candidates: " ++
+                                   (", " `intercalate` similar_strings)
         where
-        similar_strings = fuzzyMatch (unpackFS $ occNameFS $ rdrNameOcc rdr_name) strings_in_scope
+        similar_strings = fuzzyMatch
+                            (unpackFS $ occNameFS $ rdrNameOcc rdr_name)
+                            strings_in_scope
         strings_in_scope = map (unpackFS . occNameFS . nameOccName) names_in_scope
 
 
