@@ -1484,12 +1484,16 @@ lookupBindGroupOcc ctxt what rdr_name
     lookup_group bound_names  -- Look in the local envt (not top level)
 -- Note to self: See LocalRdrEnv in RdrName.hs
 -- Note to self: use fuzzyMatch from Util.hs
-      = do { mname <- lookupLocalOccRn_maybe rdr_name
+      = do { env <- getLocalRdrEnv
+           ; let all_names = map (unpackFS . occNameFS . nameOccName) (localRdrEnvElts env)
+           ; let similar_names = fuzzyMatch (unpackFS $ occNameFS $ rdrNameOcc rdr_name) all_names
+           ; let candidates_msg = parens $ text $ "Possible candidates: " ++ (", " `intercalate` similar_names)
+           ; mname <- lookupLocalOccRn_maybe rdr_name
            ; case mname of
                Just n
                  | n `elemNameSet` bound_names -> return (Right n)
                  | otherwise                   -> bale_out_with local_msg
-               Nothing                         -> bale_out_with Outputable.empty }
+               Nothing                         -> bale_out_with candidates_msg }
 
     bale_out_with msg
         = return (Left (sep [ text "The" <+> what
