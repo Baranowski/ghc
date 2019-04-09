@@ -1,0 +1,14 @@
+
+T16504.hs:5:1:
+    The type signature for ‘simpleFuntcion’
+      lacks an accompanying binding
+      (Possible candidates: simpleFunction)
+
+T16504.hs:10:9:
+    The type signature for ‘anotherFunction’
+      lacks an accompanying binding
+      (Possible candidates: anotherFuntcion)
+
+T16504.hs:14:1:
+    The type signature for ‘nonexistentFuntcion’
+      lacks an accompanying binding
