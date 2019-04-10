@@ -1,14 +1,14 @@
 
-T16504.hs:5:1:
+T16504.hs:5:1: error:
     The type signature for ‘simpleFuntcion’
       lacks an accompanying binding
-      (Possible candidates: simpleFunction)
+      Perhaps you meant simpleFunction at T16504.hs:6:1
 
-T16504.hs:10:9:
+T16504.hs:10:9: error:
     The type signature for ‘anotherFunction’
       lacks an accompanying binding
-      (Possible candidates: anotherFuntcion)
+      Perhaps you meant anotherFuntcion at T16504.hs:11:9
 
-T16504.hs:14:1:
+T16504.hs:14:1: error:
     The type signature for ‘nonexistentFuntcion’
       lacks an accompanying binding

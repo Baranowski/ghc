@@ -79,7 +79,7 @@ import RnUnbound
 import RnUtils
 import qualified Data.Semigroup as Semi
 import Data.Either      ( partitionEithers )
-import Data.List        ( find, intercalate )
+import Data.List        (find)
 
 {-
 *********************************************************
@@ -1479,8 +1479,8 @@ lookupBindGroupOcc ctxt what rdr_name
                (gre:_)            -> return (Right (gre_name gre)) }
 
     lookup_group bound_names  -- Look in the local envt (not top level)
-      = do { env <- getLocalRdrEnv
-           ; mname <- lookupLocalOccRn_maybe rdr_name
+      = do { mname <- lookupLocalOccRn_maybe rdr_name
+           ; env <- getLocalRdrEnv
            ; let candidates_msg = candidates $ localRdrEnvElts env
            ; case mname of
                Just n
@@ -1496,16 +1496,19 @@ lookupBindGroupOcc ctxt what rdr_name
 
     local_msg = parens $ text "The"  <+> what <+> ptext (sLit "must be given where")
                            <+> quotes (ppr rdr_name) <+> text "is declared"
+
     candidates names_in_scope
-        =  case similar_strings of
-             [] -> Outputable.empty
-             _  -> parens $ text $ "Possible candidates: " ++
-                                   (", " `intercalate` similar_strings)
-        where
-        similar_strings = fuzzyMatch
-                            (unpackFS $ occNameFS $ rdrNameOcc rdr_name)
-                            strings_in_scope
-        strings_in_scope = map (unpackFS . occNameFS . nameOccName) names_in_scope
+      = case similar_names of
+          [] -> Outputable.empty
+          _  -> sep $ map (\x -> text "Perhaps you meant" <+>
+                                 ppr x <+>
+                                 pprNameDefnLoc x)
+                          similar_names
+      where
+        similar_names
+          = fuzzyLookup (unpackFS $ occNameFS $ rdrNameOcc rdr_name)
+                        $ map (\x -> ((unpackFS $ occNameFS $ nameOccName x), x))
+                              names_in_scope
 
 
 ---------------
