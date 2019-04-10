@@ -1500,10 +1500,10 @@ lookupBindGroupOcc ctxt what rdr_name
     candidates names_in_scope
       = case similar_names of
           [] -> Outputable.empty
-          _  -> sep $ map (\x -> text "Perhaps you meant" <+>
-                                 ppr x <+>
-                                 pprNameDefnLoc x)
-                          similar_names
+          _  -> vcat $ map (\x -> text "Perhaps you meant" <+>
+                                  quotes (ppr x) <+>
+                                  parens (pprDefinedAt x))
+                           similar_names
       where
         similar_names
           = fuzzyLookup (unpackFS $ occNameFS $ rdrNameOcc rdr_name)
